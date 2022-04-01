@@ -56,6 +56,7 @@ pub struct ProcessArmorSet {
     pub items: [u16; NUM_ITEM_BUCKETS],
     pub power: u16,
     pub total_tier: u8,
+    pub extra_stat_mods: [Option<NonZeroU32>; 5],
 }
 
 #[repr(C)]
@@ -116,7 +117,8 @@ macro_rules! assert_size_align {
 assert_size_align!(ProcessItem, 24, 4);
 assert_size_align!(ProcessMod, 12, 4);
 assert_size_align!(ProcessStatMod, 24, 4);
-assert_size_align!(ProcessArmorSet, 26, 2);
+assert_size_align!(ProcessArmorSet, 48, 4);
+// assert_size_align!(ProcessArmorSet, 26, 2);
 assert_size_align!(ProcessArgs, 36, 2);
 assert_size_align!(ProcessResults, 60, 4);
 assert_size_align!(ProcessStats, 24, 4);

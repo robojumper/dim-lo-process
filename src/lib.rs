@@ -4,9 +4,11 @@
 
 extern crate alloc;
 
+use std::collections::BTreeMap;
+
 use alloc::vec::Vec;
 use set_tracker::SetTracker;
-use stat_mod_set::{ModPick, ModPickSet};
+use stat_mod_set::StatProvider;
 use types::{
     DestinyEnergyType, ProcessArmorSet, ProcessItem, ProcessMod, ProcessStatMod, ProcessStats,
     Stats, NO_TIER, NUM_ITEM_BUCKETS, NUM_STATS,
@@ -29,7 +31,7 @@ pub fn dim_lo_process(
     activity_mods: &[ProcessMod; 5],
     base_stats: Stats,
     optional_stat_mods: &[ProcessStatMod],
-    mut auto_add_stat_mods: bool,
+    auto_add_stat_mods: bool,
     lower_bounds: [u8; NUM_STATS],
     upper_bounds: [u8; NUM_STATS],
     any_exotic: bool,
@@ -54,11 +56,8 @@ pub fn dim_lo_process(
         + combat_mods.iter().filter(|m| m.hash.is_some()).count()
         > 0;
 
-    let num_auto_mods_available = 5usize.saturating_sub(num_stat_mods);
-    auto_add_stat_mods = auto_add_stat_mods && num_auto_mods_available > 0;
-
-    let mod_set = if auto_add_stat_mods {
-        Some(stat_mod_set::ModPickSet::new(
+    let mod_set = if auto_add_stat_mods && num_stat_mods < 5 {
+        Some(stat_mod_set::generate_mods_options(
             &general_mods[0..num_stat_mods],
             optional_stat_mods,
         ))
@@ -129,11 +128,12 @@ pub fn dim_lo_process(
                                             items: set.map(|i| i.id),
                                             total_tier: pick.resulting_total_tier,
                                             power: set.map(|i| i.power).iter().sum::<u16>() / 5,
+                                            extra_stat_mods: pick.pick.map(|m| m.hash),
                                         },
                                     );
                                 }
                                 None => {
-                                    info.skipped_stat_range += 1;
+                                    info.skipped_mods_unfit += 1;
                                     continue;
                                 }
                             }
@@ -179,6 +179,7 @@ pub fn dim_lo_process(
                                     items: set.map(|i| i.id),
                                     total_tier,
                                     power: set.map(|i| i.power).iter().sum::<u16>() / 5,
+                                    extra_stat_mods: [None; 5],
                                 },
                             );
                         }
@@ -210,7 +211,7 @@ fn energy_spec(md: &ProcessMod) -> (u8, DestinyEnergyType) {
 #[cfg_attr(test, derive(Debug))]
 #[derive(Clone, Copy)]
 struct StatModPickResults<'a> {
-    pick: &'a ModPick<'a>,
+    pick: &'a [&'a ProcessMod; 5],
     tiers: [u8; NUM_STATS],
     resulting_total_tier: u8,
     resulting_stats: Stats,
@@ -223,8 +224,8 @@ fn can_take_mods_auto<'a>(
     combat_mod_perms: &[[&ProcessMod; 5]],
     activity_mod_perms: &[[&ProcessMod; 5]],
     items: [&ProcessItem; 5],
-    stats: &Stats,
-    mod_set: &'a ModPickSet<'a>,
+    base_stats: &Stats,
+    mod_set: &'a BTreeMap<Stats, StatProvider<'a>>,
     lower: &[u8; NUM_STATS],
     upper: &[u8; NUM_STATS],
 ) -> Option<StatModPickResults<'a>> {
@@ -252,47 +253,25 @@ fn can_take_mods_auto<'a>(
         }
     }
 
-    
     // Sort general mod costs descending
     let mut general_mod_costs = general_mods.each_ref().map(|m| m.energy_val);
     general_mod_costs.sort_by_key(|&x| core::cmp::Reverse(x));
 
-    // At this point we actually have to find stat mods that conform to our limits
-    // For any ignored stat, the maximum and minimum contribution from auto mods
-    // is 0 and 0 because we don't want to spend any energy on them even if possible (?)
-    // For any non-ignored tier, we never want to end up with more than max_tier*10+4 and never
-    // with less than minimum*10.
-    let mut minimum_contribution = Stats([0u16; NUM_STATS]);
-    let mut maximum_contribution = Stats([0u16; NUM_STATS]);
+    let mut contribution = Stats([0u16; NUM_STATS]);
     for i in 0..NUM_STATS {
         if lower[i] != NO_TIER {
-            minimum_contribution.0[i] = (lower[i] as u16 * 10).saturating_sub(stats.0[i]);
-        }
-        if upper[i] != NO_TIER {
-            maximum_contribution.0[i] = (upper[i] as u16 * 10 + 4).saturating_sub(stats.0[i]);
+            contribution.0[i] = (lower[i] as u16 * 10).saturating_sub(base_stats.0[i]);
+            contribution.0[i] += (5 - contribution.0[i] % 5) % 5;
         }
     }
 
-    maximum_contribution = minimum_contribution;
-
-    // Tracking our best result
-    let mut result: Option<StatModPickResults> = None;
-
     // get all stat mod options we could fit in here
-    let orig_options = mod_set
-                .get_options(&minimum_contribution, &maximum_contribution);
-    let orig_options = orig_options.filter(|&o| {
-        for i in 0..NUM_STATS {
-            if o.stats.0[i] % 10 >= 5 && stats.0[i] % 10 < 5  {
-                return false;
-            }
-        }
-        true
-    });
+    let orig_options = match mod_set.get(&contribution) {
+        Some(mods) => mods.mods.as_slice(),
+        None => return None,
+    };
 
-
-    let mut options = orig_options.map(|pick| map_mod_picks(stats, lower, pick)).collect::<Vec<_>>();
-    options.sort_by_key(|opt| opt.pick.extra_mods.iter().position(|m| m.hash.is_none()));
+    let mut leftover_energies = vec![];
 
     'activityModLoop: for activity_perm in activity_mod_perms {
         'activityItemLoop: for (i, &item) in items.iter().enumerate() {
@@ -348,44 +327,38 @@ fn can_take_mods_auto<'a>(
                     - combat_energy_val;
             }
 
-            // Ask our mod picks set for the stat mods we can fit in here
-            let best_pick = options.iter()
-                .find(|&res| 
-                    fits(&leftover_energy, &res.pick.costs)
-                );
+            leftover_energy.sort_by_key(|&x| core::cmp::Reverse(x));
+            leftover_energies.push(leftover_energy);
 
-            match (result.as_ref(), best_pick.as_ref()) {
-                (Some(r), Some(p)) if r.resulting_stats < p.resulting_stats => {
-                    result = best_pick.copied();
+            if let &[leftover_energy, ..] = &leftover_energies[..] {
+                // Ask our mod picks set for the stat mods we can fit in here
+                let pick = orig_options
+                    .iter()
+                    .find(|&res| fits(&leftover_energy, &res.costs));
+        
+                if let Some(pick) = pick {
+                    let stats = *base_stats + contribution;
+                    let mut total_tier = 0;
+                    let mut tiers = stats.0.map(|s| s / 10).map(|s| s.clamp(0, 10) as u8);
+                    for i in 0..NUM_STATS {
+                        if lower[i] != NO_TIER {
+                            total_tier += tiers[i];
+                        } else {
+                            tiers[i] = 0;
+                        }
+                    }
+                    return Some(StatModPickResults {
+                        pick: &pick.mods,
+                        tiers,
+                        resulting_total_tier: total_tier,
+                        resulting_stats: stats,
+                    });
                 }
-                (None, _) => result = best_pick.copied(),
-                _ => {}
             }
-
-            // explicitly continue here
         }
     }
 
-    result
-}
-
-fn map_mod_picks<'a>(stats: &Stats, lower: &[u8; NUM_STATS], pick: &'a ModPick<'a>) -> StatModPickResults<'a> {
-        let new_stats = *stats + pick.stats;
-        let mut tiers = new_stats.0.map(|s| s / 10).map(|s| s.clamp(0, 10) as u8);
-        let mut resulting_total_tier = 0;
-        for i in 0..NUM_STATS {
-            if lower[i] != NO_TIER {
-                resulting_total_tier += tiers[i];
-            } else {
-                tiers[i] = 0;
-            }
-        }
-        StatModPickResults {
-            pick,
-            resulting_total_tier,
-            tiers,
-            resulting_stats: new_stats,
-        }
+    None
 }
 
 fn fits(rem: &[u8; 5], assign: &[u8; 5]) -> bool {

@@ -72,7 +72,7 @@ fn check_auto_assignment() {
         base_stats,
         &SAMPLE_MODS,
         true,
-        [0, 0, 10, 8, 0, 0],
+        [0, 0, 10, 9, 0, 0],
         [10, 10, 10, 10, 10, 10],
         true,
     );
