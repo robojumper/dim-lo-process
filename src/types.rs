@@ -4,13 +4,15 @@ pub const NUM_STATS: usize = 6;
 pub const NUM_ITEM_BUCKETS: usize = 5;
 
 #[repr(transparent)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Stats(pub [u16; NUM_STATS]);
 
 pub const NO_TIER: u8 = u8::MAX;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(test, derive(Debug))]
 pub enum DestinyEnergyType {
     Any = 0,
     Arc = 1,
@@ -34,11 +36,18 @@ pub struct ProcessItem {
 }
 
 #[repr(C)]
+#[cfg_attr(test, derive(Debug))]
 pub struct ProcessMod {
     pub hash: Option<NonZeroU32>,
     pub mod_tag: Option<NonZeroU32>,
     pub energy_type: DestinyEnergyType,
     pub energy_val: u8,
+}
+
+#[repr(C)]
+pub struct ProcessStatMod {
+    pub inner_mod: ProcessMod,
+    pub stats: Stats,
 }
 
 #[repr(C)]
@@ -57,6 +66,7 @@ pub struct ProcessArgs {
     pub lower_bounds: [u8; NUM_STATS],
     pub upper_bounds: [u8; NUM_STATS],
     pub any_exotic: u8,
+    pub auto_mods: u8,
 }
 
 #[repr(C)]
@@ -85,6 +95,7 @@ pub struct ProcessSetupContext {
     pub args: ProcessArgs,
     pub items: (*mut ProcessItem, usize, usize),
     pub mods: (*mut ProcessMod, usize, usize),
+    pub auto_mods: (*mut ProcessStatMod, usize, usize),
 }
 
 macro_rules! assert_size_align {
@@ -104,6 +115,7 @@ macro_rules! assert_size_align {
 // FFI guarantees...
 assert_size_align!(ProcessItem, 24, 4);
 assert_size_align!(ProcessMod, 12, 4);
+assert_size_align!(ProcessStatMod, 24, 4);
 assert_size_align!(ProcessArmorSet, 26, 2);
 assert_size_align!(ProcessArgs, 36, 2);
 assert_size_align!(ProcessResults, 60, 4);
