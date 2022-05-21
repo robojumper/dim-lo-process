@@ -1,5 +1,6 @@
 #![feature(array_methods)]
 #![feature(array_windows)]
+#![no_std]
 
 extern crate alloc;
 
@@ -21,8 +22,8 @@ pub mod types;
 mod tests;
 
 struct ModAssignmentInvariants<'a> {
-    combat_mod_perms: Vec<[&'a ProcessMod; 5]>,
-    activity_mod_perms: Vec<[&'a ProcessMod; 5]>,
+    combat_mod_perms: Vec<[&'a ProcessMod; NUM_ITEM_BUCKETS]>,
+    activity_mod_perms: Vec<[&'a ProcessMod; NUM_ITEM_BUCKETS]>,
     combat_mod_cost: u8,
     activity_mod_cost: u8,
     mod_set: BTreeMap<Stats, SomeMods<'a>>,
@@ -33,9 +34,9 @@ struct ModAssignmentInvariants<'a> {
 #[allow(clippy::too_many_arguments)]
 pub fn dim_lo_process(
     items: [&[ProcessItem]; NUM_ITEM_BUCKETS],
-    general_mods: &[ProcessMod; 5],
-    combat_mods: &[ProcessMod; 5],
-    activity_mods: &[ProcessMod; 5],
+    general_mods: &[ProcessMod; NUM_ITEM_BUCKETS],
+    combat_mods: &[ProcessMod; NUM_ITEM_BUCKETS],
+    activity_mods: &[ProcessMod; NUM_ITEM_BUCKETS],
     base_stats: Stats,
     optional_stat_mods: &[ProcessStatMod],
     num_auto_mods: u8,
@@ -52,6 +53,16 @@ pub fn dim_lo_process(
     let mut max = [0u16; 6];
     let mut min = [100u16; 6];
 
+    let empty_stat_mod = ProcessStatMod {
+        inner_mod: ProcessMod {
+            hash: None,
+            mod_tag: None,
+            energy_type: EnergyType::Any,
+            energy_val: 0,
+        },
+        stats: Stats([0; 6]),
+    };
+
     let mod_assignment_invars = {
         let activity_mod_perms = generate_permutations_of(activity_mods);
         let combat_mod_perms = generate_permutations_of(combat_mods);
@@ -65,6 +76,7 @@ pub fn dim_lo_process(
         let mod_set = stat_mod_set::generate_mods_options(
             &general_mods[0..num_stat_mods],
             optional_stat_mods,
+            &empty_stat_mod,
             num_auto_mods,
         );
 
@@ -112,6 +124,7 @@ pub fn dim_lo_process(
                             .fold(base_stats, |stats, item| stats + item.stats);
 
                         // First, check what effective stats we end up with and whether we actually want this in the
+                        // sets tracker.
                         let mut sorting_tiers =
                             stats.0.map(|s| s / 10).map(|s| s.clamp(0, 10) as u8);
                         let mut sorting_total_tier = 0;
@@ -120,6 +133,11 @@ pub fn dim_lo_process(
                             if lower_bounds[i] != NO_TIER {
                                 max[i] = core::cmp::max(max[i], stats.0[i].clamp(0, 100));
                                 min[i] = core::cmp::min(min[i], stats.0[i].clamp(0, 100));
+                                // If a stat has a maximum, we still show sets that have a higher tier,
+                                // but we stop caring about the surplus. A user may specify that they
+                                // want 5 mobility at most because Dragon's Shadow gives 5 bonus mobility
+                                // after dodging, but hiding a really good T6 mobility set just because of
+                                // that is wrong, we should just treat it as if it had T5 mobility.
                                 if upper_bounds[i] < sorting_tiers[i] {
                                     sorting_tiers[i] = upper_bounds[i];
                                 }
@@ -188,7 +206,7 @@ fn energy_spec(md: &ProcessMod) -> (u8, EnergyType) {
 #[cfg_attr(test, derive(Debug))]
 #[derive(Clone, Copy)]
 struct StatModPick<'a> {
-    pick: &'a [&'a ProcessMod; 5],
+    pick: &'a [&'a ProcessMod; NUM_ITEM_BUCKETS],
     resulting_stats: Stats,
 }
 
@@ -201,7 +219,7 @@ enum StatModPickResults<'a> {
 
 #[inline(never)]
 fn can_take_mods_auto<'a>(
-    items: [&ProcessItem; 5],
+    items: [&ProcessItem; NUM_ITEM_BUCKETS],
     base_stats: &Stats,
     invars: &'a ModAssignmentInvariants<'a>,
 ) -> StatModPickResults<'a> {
@@ -232,6 +250,9 @@ fn can_take_mods_auto<'a>(
         }
     }
 
+    // Check out which stats are missing to get to the lower bounds.
+    // This always creates non-negative multiples of 5, which are
+    // exactly the stats the auto stat mods map is keyed by.
     let mut contribution = Stats([0u16; NUM_STATS]);
     for i in 0..NUM_STATS {
         if invars.lower[i] != NO_TIER {
@@ -240,13 +261,16 @@ fn can_take_mods_auto<'a>(
         }
     }
 
-    // retrieve the stat mods that could help us get to the minimum stats we need.
+    // Retrieve the stat mod picks that could help us get to the minimum stats we need.
     // NB this includes our locked general mods
     let orig_options = match invars.mod_set.get(&contribution) {
         Some(mods) => mods.mods.as_slice(),
         None => return StatModPickResults::LowStats,
     };
 
+    // (Unlikely, maybe not even worth including here)
+    // Early exit if we don't have enough remaining energy for
+    // any pick of mods, no matter bucket independent mod positions.
     let mut total_remaining_energy = items
         .iter()
         .map(|i| i.energy_cap - i.energy_val)
@@ -254,7 +278,7 @@ fn can_take_mods_auto<'a>(
     total_remaining_energy -= (invars.activity_mod_cost + invars.combat_mod_cost) as i8;
     if !orig_options
         .iter()
-        .any(|o| (o.sum_cost as i8) < total_remaining_energy)
+        .any(|o| (o.sum_cost as i8) <= total_remaining_energy)
     {
         return StatModPickResults::AutoModsDidntFit;
     }
@@ -340,7 +364,7 @@ fn can_take_mods_auto<'a>(
     }
 }
 
-fn fits(rem: &[u8; 5], assign: &[u8; 5]) -> bool {
+fn fits(rem: &[u8; NUM_ITEM_BUCKETS], assign: &[u8; NUM_ITEM_BUCKETS]) -> bool {
     rem[0] >= assign[0]
         && rem[1] >= assign[1]
         && rem[2] >= assign[2]
@@ -362,8 +386,8 @@ impl Energy for ProcessMod {
     }
 }
 
-fn get_energy_counts<T: Energy>(items: &[&T; 5]) -> [u8; 5] {
-    let mut energies = [0; 5];
+fn get_energy_counts<T: Energy>(items: &[&T; NUM_ITEM_BUCKETS]) -> [u8; NUM_ITEM_BUCKETS] {
+    let mut energies = [0; NUM_ITEM_BUCKETS];
     for &item in items {
         energies[item.energy() as u8 as usize] += 1;
     }

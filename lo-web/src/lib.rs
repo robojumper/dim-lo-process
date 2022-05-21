@@ -1,5 +1,10 @@
 #![feature(vec_into_raw_parts)]
 
+#![no_std]
+
+extern crate alloc;
+
+use alloc::{vec::Vec, boxed::Box};
 use dim_lo_core::{
     dim_lo_process,
     types::{ProcessArgs, ProcessItem, ProcessMod, ProcessStatMod, NUM_ITEM_BUCKETS},

@@ -2,6 +2,7 @@
 members = [
     "lo-core",
     "lo-web",
+    "lo-offline",
     "compile",
 ]
 
@@ -10,7 +11,10 @@ inherits = "dev"
 panic = "abort"
 
 [profile.wasm]
+# all of this is really meant to bring code size down
+# as much as possible while yielding maximum performance
 inherits = "release"
+codegen-units = 1
 opt-level = 3
 lto = true
 panic = "abort"

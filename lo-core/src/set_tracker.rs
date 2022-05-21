@@ -1,3 +1,5 @@
+use alloc::{boxed::Box, vec, vec::Vec};
+
 use crate::types::{ProcessArmorSet, NUM_STATS};
 
 struct StatMix {

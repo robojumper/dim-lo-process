@@ -19,13 +19,14 @@ fn main() {
         &[
             "build",
             "--profile=wasm",
-            r"-Zbuild-std=panic_abort,std",
+            "-Zbuild-std=panic_abort,std",
+            "-Zbuild-std-features=panic_immediate_abort",
             "--target=wasm32-unknown-unknown",
             "-p=lo-web",
         ],
     );
     cmd(
-        "D:/MyPrograms/binaryen/wasm-opt",
+        "wasm-opt",
         &[
             "./target/wasm32-unknown-unknown/wasm/lo_web.wasm",
             "-O3",
