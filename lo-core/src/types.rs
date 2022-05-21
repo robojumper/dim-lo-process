@@ -13,7 +13,7 @@ pub const NO_TIER: u8 = u8::MAX;
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Debug))]
-pub enum DestinyEnergyType {
+pub enum EnergyType {
     Any = 0,
     Arc = 1,
     Solar = 2,
@@ -26,10 +26,10 @@ pub struct ProcessItem {
     /// The id to map the generated set back to real items
     pub id: u16,
     pub power: u16,
-    pub energy_type: DestinyEnergyType,
+    pub energy_type: EnergyType,
     pub energy_val: u8,
     pub energy_cap: u8,
-    pub exotic: u8,
+    pub exotic: bool,
     /// A bit mask of mod tags this item can slot. Currently imposes a limit of 32 slot tags.
     pub mod_tags: u32,
     pub stats: Stats,
@@ -40,7 +40,7 @@ pub struct ProcessItem {
 pub struct ProcessMod {
     pub hash: Option<NonZeroU32>,
     pub mod_tag: Option<NonZeroU32>,
-    pub energy_type: DestinyEnergyType,
+    pub energy_type: EnergyType,
     pub energy_val: u8,
 }
 
@@ -66,18 +66,8 @@ pub struct ProcessArgs {
     pub num_items: [u16; NUM_ITEM_BUCKETS],
     pub lower_bounds: [u8; NUM_STATS],
     pub upper_bounds: [u8; NUM_STATS],
-    pub any_exotic: u8,
+    pub any_exotic: bool,
     pub auto_mods: u8,
-}
-
-#[repr(C)]
-pub struct ProcessResults {
-    pub ptr: *mut ProcessArmorSet,
-    pub len: usize,
-    pub cap: usize,
-    pub stats: ProcessStats,
-    pub min_seen: [u16; NUM_STATS],
-    pub max_seen: [u16; NUM_STATS],
 }
 
 #[repr(C)]
@@ -89,14 +79,6 @@ pub struct ProcessStats {
     pub skipped_mods_unfit: u32,
     pub skipped_double_exotic: u32,
     pub skipped_no_exotic: u32,
-}
-
-#[repr(C)]
-pub struct ProcessSetupContext {
-    pub args: ProcessArgs,
-    pub items: (*mut ProcessItem, usize, usize),
-    pub mods: (*mut ProcessMod, usize, usize),
-    pub auto_mods: (*mut ProcessStatMod, usize, usize),
 }
 
 macro_rules! assert_size_align {
@@ -118,9 +100,7 @@ assert_size_align!(ProcessItem, 24, 4);
 assert_size_align!(ProcessMod, 12, 4);
 assert_size_align!(ProcessStatMod, 24, 4);
 assert_size_align!(ProcessArmorSet, 48, 4);
-// assert_size_align!(ProcessArmorSet, 26, 2);
 assert_size_align!(ProcessArgs, 36, 2);
-assert_size_align!(ProcessResults, 60, 4);
 assert_size_align!(ProcessStats, 24, 4);
 
 impl Add for Stats {

@@ -1,21 +1,17 @@
-[package]
-name = "dim-lo-process"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "lo-core",
+    "lo-web",
+    "compile",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-pareto_front = "1.0.1"
-
-[profile.dev]
+[profile.wasm_dev]
+inherits = "dev"
 panic = "abort"
 
-[profile.release]
+[profile.wasm]
+inherits = "release"
 opt-level = 3
 lto = true
 panic = "abort"
 debug = 0
-
-[lib]
-crate-type = ["cdylib"]

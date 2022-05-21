@@ -3,8 +3,7 @@ use std::num::NonZeroU32;
 use crate::{
     dim_lo_process,
     types::{
-        DestinyEnergyType, ProcessItem, ProcessMod, ProcessStatMod, Stats, NUM_ITEM_BUCKETS,
-        NUM_STATS,
+        EnergyType, ProcessItem, ProcessMod, ProcessStatMod, Stats, NUM_ITEM_BUCKETS, NUM_STATS,
     },
 };
 
@@ -16,50 +15,50 @@ fn check_auto_assignment() {
         &[ProcessItem {
             id: 1,
             power: 1560,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 0,
             energy_cap: 10,
-            exotic: 0,
+            exotic: false,
             mod_tags: 0,
             stats: Stats([11, 4, 23, 8, 24, 8]),
         }],
         &[ProcessItem {
             id: 2,
             power: 1560,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 0,
             energy_cap: 10,
-            exotic: 0,
+            exotic: false,
             mod_tags: 0,
             stats: Stats([10, 4, 24, 8, 14, 18]),
         }],
         &[ProcessItem {
             id: 3,
             power: 1560,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 0,
             energy_cap: 10,
-            exotic: 1,
+            exotic: true,
             mod_tags: 0,
             stats: Stats([14, 9, 18, 18, 14, 8]),
         }],
         &[ProcessItem {
             id: 4,
             power: 1560,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 0,
             energy_cap: 10,
-            exotic: 0,
+            exotic: false,
             mod_tags: 0,
             stats: Stats([4, 11, 24, 18, 18, 4]),
         }],
         &[ProcessItem {
             id: 5,
             power: 1560,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 0,
             energy_cap: 10,
-            exotic: 0,
+            exotic: false,
             mod_tags: 0,
             stats: Stats([2, 2, 2, 2, 2, 2]),
         }],
@@ -71,7 +70,7 @@ fn check_auto_assignment() {
         &no_mods,
         base_stats,
         &SAMPLE_MODS,
-        true,
+        5,
         [0, 0, 10, 9, 0, 0],
         [10, 10, 10, 10, 10, 10],
         true,
@@ -83,7 +82,7 @@ fn check_auto_assignment() {
 pub const NO_MOD: ProcessMod = ProcessMod {
     hash: None,
     mod_tag: None,
-    energy_type: DestinyEnergyType::Any,
+    energy_type: EnergyType::Any,
     energy_val: 0,
 };
 
@@ -93,7 +92,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: None,
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 0,
         },
 
@@ -104,7 +103,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(1),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 1,
         },
 
@@ -115,7 +114,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(2),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 1,
         },
         stats: Stats([0, 5, 0, 0, 0, 0]),
@@ -125,7 +124,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(3),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 2,
         },
 
@@ -136,7 +135,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(4),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 1,
         },
 
@@ -147,7 +146,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(5),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 2,
         },
 
@@ -158,7 +157,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(6),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 1,
         },
 
@@ -169,7 +168,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(7),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 3,
         },
 
@@ -180,7 +179,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(8),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 3,
         },
 
@@ -191,7 +190,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(9),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 4,
         },
 
@@ -202,7 +201,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(10),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 3,
         },
 
@@ -213,7 +212,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(11),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 5,
         },
 
@@ -224,7 +223,7 @@ pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
         inner_mod: ProcessMod {
             hash: NonZeroU32::new(12),
             mod_tag: None,
-            energy_type: DestinyEnergyType::Any,
+            energy_type: EnergyType::Any,
             energy_val: 3,
         },
 

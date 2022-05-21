@@ -7,11 +7,18 @@ use crate::types::{ProcessMod, ProcessStatMod, Stats};
 pub struct ModsArray<'a> {
     pub costs: [u8; 5],
     pub mods: [&'a ProcessMod; 5],
+    pub sum_cost: u8,
+    pub num_mods: u8,
 }
 
 #[cfg_attr(test, derive(Debug))]
-pub struct StatProvider<'a> {
+struct TempMods<'a> {
     pub mods: ParetoFront<ModsArray<'a>>,
+}
+
+#[cfg_attr(test, derive(Debug))]
+pub struct SomeMods<'a> {
+    pub mods: Vec<ModsArray<'a>>,
 }
 
 impl Dominate for ModsArray<'_> {
@@ -29,7 +36,8 @@ impl Dominate for ModsArray<'_> {
 pub fn generate_mods_options<'a>(
     existing_mods: &[ProcessMod],
     mods: &'a [ProcessStatMod],
-) -> BTreeMap<Stats, StatProvider<'a>> {
+    num_extra_mods: u8,
+) -> BTreeMap<Stats, SomeMods<'a>> {
     // 13^5 = 371,293 possible assignments
     let mut map = BTreeMap::new();
     let existing_costs = existing_mods
@@ -51,9 +59,11 @@ pub fn generate_mods_options<'a>(
                             &mod4.inner_mod,
                         ];
 
-                        if mod_list.iter().filter(|m| m.hash.is_some()).count()
-                            > 5 - existing_mods.len()
-                        {
+                        let capacity =
+                            (num_extra_mods as usize).saturating_sub(existing_mods.len());
+                        let num_extra_mods = mod_list.iter().filter(|m| m.hash.is_some()).count();
+
+                        if num_extra_mods > capacity {
                             continue;
                         }
 
@@ -81,13 +91,15 @@ pub fn generate_mods_options<'a>(
 
                         let stats = mod0.stats + mod1.stats + mod2.stats + mod3.stats + mod4.stats;
 
-                        let entry = map.entry(stats).or_insert_with(|| StatProvider {
+                        let entry = map.entry(stats).or_insert_with(|| TempMods {
                             mods: ParetoFront::new(),
                         });
 
                         entry.mods.push(ModsArray {
                             mods: mod_list,
                             costs,
+                            sum_cost: costs.iter().sum(),
+                            num_mods: mod_list.iter().filter(|m| m.hash.is_some()).count() as u8,
                         });
                     }
                 }
@@ -95,28 +107,11 @@ pub fn generate_mods_options<'a>(
         }
     }
 
-    map
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::tests::SAMPLE_MODS;
-
-    /*
-    #[test]
-    fn doit() {
-        let stuff = super::generate_mods_options(&[], &SAMPLE_MODS);
-        let max = stuff.iter().max_by_key(|k| k.1.mods.as_slice().len());
-        // println!("{:#?}", stuff);
-        println!("{:#?}", max);
-        println!("{:#?}", stuff.len());
-        println!(
-            "{:#?}",
-            stuff
-                .iter()
-                .map(|x| x.1.mods.as_slice().len())
-                .sum::<usize>()
-        );
-    }
-    */
+    map.into_iter()
+        .map(|(key, val)| {
+            let mut variants = val.mods.into_iter().collect::<Vec<_>>();
+            variants.sort_by_key(|m| m.num_mods);
+            (key, SomeMods { mods: variants })
+        })
+        .collect()
 }

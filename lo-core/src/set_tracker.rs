@@ -1,11 +1,17 @@
 use crate::types::{ProcessArmorSet, NUM_STATS};
 
 struct StatMix {
-    tiers: [u8; NUM_STATS],
+    /// Tiers in stat order for purposes of sorting only!
+    /// We don't count tiers beyond what the user set as max (e.g. if the
+    /// user says max mobility 5 and we have 7, we treat this as if it had mobility 5),
+    /// and we also don't count auto stat mods (they're not interesting because they
+    /// only ever buff bad sets that need stat mods in the first place)
+    sorting_tiers: [u8; NUM_STATS],
     sets: Vec<ProcessArmorSet>,
 }
 
 struct TierSet {
+    /// Effective tier (sum of sorting_tiers)
     tier: u8,
     // Boxing the contents is really important because it avoids tons
     // of memmoves which are really slow in WASM. StatMix is 24 bytes,
@@ -34,16 +40,17 @@ impl SetTracker {
         tier >= worst_tier || self.total_sets < self.capacity
     }
 
-    pub fn insert(&mut self, tiers: [u8; NUM_STATS], set: ProcessArmorSet) {
+    /// Insert a set into the tracker with the given
+    pub fn insert(&mut self, sorting_tiers: [u8; NUM_STATS], set: ProcessArmorSet) {
         match self.tiers.binary_search_by(|p| set.total_tier.cmp(&p.tier)) {
-            Ok(idx) => self.tiers[idx].insert(tiers, set),
+            Ok(idx) => self.tiers[idx].insert(sorting_tiers, set),
             Err(idx) => {
                 self.tiers.insert(
                     idx,
                     TierSet {
                         tier: set.total_tier,
                         mixes: vec![Box::new(StatMix {
-                            tiers,
+                            sorting_tiers,
                             sets: vec![set],
                         })],
                     },
@@ -81,13 +88,16 @@ impl SetTracker {
 }
 
 impl TierSet {
-    fn insert(&mut self, tiers: [u8; NUM_STATS], set: ProcessArmorSet) {
-        match self.mixes.binary_search_by(|s| tiers.cmp(&s.tiers)) {
+    fn insert(&mut self, sorting_tiers: [u8; NUM_STATS], set: ProcessArmorSet) {
+        match self
+            .mixes
+            .binary_search_by(|s| sorting_tiers.cmp(&s.sorting_tiers))
+        {
             Ok(idx) => self.mixes[idx].insert(set),
             Err(idx) => self.mixes.insert(
                 idx,
                 Box::new(StatMix {
-                    tiers,
+                    sorting_tiers,
                     sets: vec![set],
                 }),
             ),

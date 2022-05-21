@@ -1,16 +1,18 @@
-use crate::{
+#![feature(vec_into_raw_parts)]
+
+use dim_lo_core::{
     dim_lo_process,
-    types::{
-        ProcessArgs, ProcessItem, ProcessMod, ProcessResults, ProcessSetupContext, ProcessStatMod,
-        NUM_ITEM_BUCKETS,
-    },
+    types::{ProcessArgs, ProcessItem, ProcessMod, ProcessStatMod, NUM_ITEM_BUCKETS},
 };
+use types::{ProcessResults, ProcessSetupContext};
+
+mod types;
 
 #[no_mangle]
-pub fn lo_init(num_items: usize) -> *mut ProcessSetupContext {
+pub fn lo_init(num_items: usize, num_auto_mods: usize) -> *mut ProcessSetupContext {
     let items = Vec::<ProcessItem>::with_capacity(num_items);
     let mods = Vec::<ProcessMod>::with_capacity(15);
-    let auto_mods = Vec::<ProcessStatMod>::with_capacity(13);
+    let auto_mods = Vec::<ProcessStatMod>::with_capacity(num_auto_mods);
     let ctx = Box::new(ProcessSetupContext {
         args: ProcessArgs::default(),
         items: items.into_raw_parts(),
@@ -21,22 +23,22 @@ pub fn lo_init(num_items: usize) -> *mut ProcessSetupContext {
 }
 
 #[no_mangle]
-pub fn lo_items_ptr(ctx: *mut ProcessSetupContext) -> *mut ProcessItem {
+fn lo_items_ptr(ctx: *mut ProcessSetupContext) -> *mut ProcessItem {
     unsafe { (*ctx).items.0 }
 }
 
 #[no_mangle]
-pub fn lo_mods_ptr(ctx: *mut ProcessSetupContext) -> *mut ProcessMod {
+fn lo_mods_ptr(ctx: *mut ProcessSetupContext) -> *mut ProcessMod {
     unsafe { (*ctx).mods.0 }
 }
 
 #[no_mangle]
-pub fn lo_auto_mods_ptr(ctx: *mut ProcessSetupContext) -> *mut ProcessStatMod {
+fn lo_auto_mods_ptr(ctx: *mut ProcessSetupContext) -> *mut ProcessStatMod {
     unsafe { (*ctx).auto_mods.0 }
 }
 
 #[no_mangle]
-pub fn lo_run(ctx: *mut ProcessSetupContext) -> *mut ProcessResults {
+fn lo_run(ctx: *mut ProcessSetupContext) -> *mut ProcessResults {
     let ctx = unsafe { &*ctx };
 
     let mut lists: [&[ProcessItem]; NUM_ITEM_BUCKETS] = [&[]; NUM_ITEM_BUCKETS];
@@ -60,10 +62,10 @@ pub fn lo_run(ctx: *mut ProcessSetupContext) -> *mut ProcessResults {
         activity_mods,
         ctx.args.base_stats,
         auto_mods,
-        ctx.args.auto_mods != 0,
+        ctx.args.auto_mods,
         ctx.args.lower_bounds,
         ctx.args.upper_bounds,
-        ctx.args.any_exotic != 0,
+        ctx.args.any_exotic,
     );
 
     let parts = results.into_raw_parts();
@@ -81,12 +83,17 @@ pub fn lo_run(ctx: *mut ProcessSetupContext) -> *mut ProcessResults {
 }
 
 #[no_mangle]
-pub fn lo_free(ctx: *mut ProcessSetupContext, res: *mut ProcessResults) {
-    let ctx = unsafe { Box::from_raw(ctx) };
-    let res = unsafe { Box::from_raw(res) };
-    let _items = unsafe { Vec::from_raw_parts(ctx.items.0, ctx.items.1, ctx.items.2) };
-    let _mods = unsafe { Vec::from_raw_parts(ctx.mods.0, ctx.mods.1, ctx.mods.2) };
-    let _auto_mods =
-        unsafe { Vec::from_raw_parts(ctx.auto_mods.0, ctx.auto_mods.1, ctx.auto_mods.2) };
-    let _sets = unsafe { Vec::from_raw_parts(res.ptr, res.len, res.cap) };
+fn lo_free(ctx: *mut ProcessSetupContext, res: *mut ProcessResults) {
+    if !ctx.is_null() {
+        let ctx = unsafe { Box::from_raw(ctx) };
+        let _items = unsafe { Vec::from_raw_parts(ctx.items.0, ctx.items.1, ctx.items.2) };
+        let _mods = unsafe { Vec::from_raw_parts(ctx.mods.0, ctx.mods.1, ctx.mods.2) };
+        let _auto_mods =
+            unsafe { Vec::from_raw_parts(ctx.auto_mods.0, ctx.auto_mods.1, ctx.auto_mods.2) };
+    }
+
+    if !res.is_null() {
+        let res = unsafe { Box::from_raw(res) };
+        let _sets = unsafe { Vec::from_raw_parts(res.ptr, res.len, res.cap) };
+    }
 }
