@@ -61,11 +61,23 @@ pub struct ProcessArmorSet {
 
 #[repr(C)]
 #[derive(Default)]
-pub struct ProcessArgs {
-    pub base_stats: Stats,
-    pub num_items: [u16; NUM_ITEM_BUCKETS],
+pub struct ProcessTierBounds {
     pub lower_bounds: [u8; NUM_STATS],
     pub upper_bounds: [u8; NUM_STATS],
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct ProcessMinMaxStats {
+    pub min: [u16; NUM_STATS],
+    pub max: [u16; NUM_STATS],
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct ProcessArgs {
+    pub base_stats: Stats,
+    pub bounds: ProcessTierBounds,
     pub any_exotic: bool,
     pub auto_mods: u8,
 }
@@ -100,8 +112,8 @@ assert_size_align!(ProcessItem, 24, 4);
 assert_size_align!(ProcessMod, 12, 4);
 assert_size_align!(ProcessStatMod, 24, 4);
 assert_size_align!(ProcessArmorSet, 48, 4);
-assert_size_align!(ProcessArgs, 36, 2);
 assert_size_align!(ProcessStats, 24, 4);
+assert_size_align!(ProcessTierBounds, 12, 1);
 
 impl Add for Stats {
     type Output = Stats;

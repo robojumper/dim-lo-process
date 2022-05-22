@@ -10,8 +10,8 @@ use alloc::vec::Vec;
 use set_tracker::SetTracker;
 use stat_mod_set::SomeMods;
 use types::{
-    EnergyType, ProcessArmorSet, ProcessItem, ProcessMod, ProcessStatMod, ProcessStats, Stats,
-    NO_TIER, NUM_ITEM_BUCKETS, NUM_STATS,
+    EnergyType, ProcessArgs, ProcessArmorSet, ProcessItem, ProcessMinMaxStats, ProcessMod,
+    ProcessStatMod, ProcessStats, Stats, NO_TIER, NUM_ITEM_BUCKETS, NUM_STATS,
 };
 
 mod set_tracker;
@@ -37,18 +37,9 @@ pub fn dim_lo_process(
     general_mods: &[ProcessMod; NUM_ITEM_BUCKETS],
     combat_mods: &[ProcessMod; NUM_ITEM_BUCKETS],
     activity_mods: &[ProcessMod; NUM_ITEM_BUCKETS],
-    base_stats: Stats,
     optional_stat_mods: &[ProcessStatMod],
-    num_auto_mods: u8,
-    lower_bounds: [u8; NUM_STATS],
-    upper_bounds: [u8; NUM_STATS],
-    any_exotic: bool,
-) -> (
-    ProcessStats,
-    Vec<ProcessArmorSet>,
-    [u16; NUM_STATS],
-    [u16; NUM_STATS],
-) {
+    args: &ProcessArgs,
+) -> (ProcessStats, Vec<ProcessArmorSet>, ProcessMinMaxStats) {
     let mut info = ProcessStats::default();
     let mut max = [0u16; 6];
     let mut min = [100u16; 6];
@@ -77,7 +68,7 @@ pub fn dim_lo_process(
             &general_mods[0..num_stat_mods],
             optional_stat_mods,
             &empty_stat_mod,
-            num_auto_mods,
+            args.auto_mods,
         );
 
         ModAssignmentInvariants {
@@ -85,7 +76,7 @@ pub fn dim_lo_process(
             activity_mod_perms,
             combat_mod_cost,
             combat_mod_perms,
-            lower: &lower_bounds,
+            lower: &args.bounds.lower_bounds,
             mod_set,
         }
     };
@@ -112,7 +103,12 @@ pub fn dim_lo_process(
                         continue;
                     }
 
-                    if any_exotic && !helm.exotic && !gaunt.exotic && !chest.exotic && !leg.exotic {
+                    if args.any_exotic
+                        && !helm.exotic
+                        && !gaunt.exotic
+                        && !chest.exotic
+                        && !leg.exotic
+                    {
                         info.skipped_no_exotic += 1;
                         continue;
                     }
@@ -121,7 +117,7 @@ pub fn dim_lo_process(
                         let set = [helm, gaunt, chest, leg, class_item];
                         let stats = set
                             .iter()
-                            .fold(base_stats, |stats, item| stats + item.stats);
+                            .fold(args.base_stats, |stats, item| stats + item.stats);
 
                         // First, check what effective stats we end up with and whether we actually want this in the
                         // sets tracker.
@@ -130,7 +126,7 @@ pub fn dim_lo_process(
                         let mut sorting_total_tier = 0;
 
                         for i in 0..NUM_STATS {
-                            if lower_bounds[i] != NO_TIER {
+                            if args.bounds.lower_bounds[i] != NO_TIER {
                                 max[i] = core::cmp::max(max[i], stats.0[i].clamp(0, 100));
                                 min[i] = core::cmp::min(min[i], stats.0[i].clamp(0, 100));
                                 // If a stat has a maximum, we still show sets that have a higher tier,
@@ -138,8 +134,8 @@ pub fn dim_lo_process(
                                 // want 5 mobility at most because Dragon's Shadow gives 5 bonus mobility
                                 // after dodging, but hiding a really good T6 mobility set just because of
                                 // that is wrong, we should just treat it as if it had T5 mobility.
-                                if upper_bounds[i] < sorting_tiers[i] {
-                                    sorting_tiers[i] = upper_bounds[i];
+                                if args.bounds.upper_bounds[i] < sorting_tiers[i] {
+                                    sorting_tiers[i] = args.bounds.upper_bounds[i];
                                 }
                                 sorting_total_tier += sorting_tiers[i];
                             } else {
@@ -187,7 +183,8 @@ pub fn dim_lo_process(
     }
 
     let sets = Vec::from_iter(set_tracker.sets_by_best().take(200));
-    (info, sets, min, max)
+    let min_max = ProcessMinMaxStats { min, max };
+    (info, sets, min_max)
 }
 
 #[inline]

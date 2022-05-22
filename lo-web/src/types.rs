@@ -1,5 +1,6 @@
 use dim_lo_core::types::{
-    ProcessArgs, ProcessArmorSet, ProcessItem, ProcessMod, ProcessStatMod, ProcessStats, NUM_STATS,
+    ProcessArgs, ProcessArmorSet, ProcessItem, ProcessMinMaxStats, ProcessMod, ProcessStatMod,
+    ProcessStats, NUM_ITEM_BUCKETS,
 };
 
 #[repr(C)]
@@ -8,13 +9,13 @@ pub struct ProcessResults {
     pub len: usize,
     pub cap: usize,
     pub stats: ProcessStats,
-    pub min_seen: [u16; NUM_STATS],
-    pub max_seen: [u16; NUM_STATS],
+    pub min_max: ProcessMinMaxStats,
 }
 
 #[repr(C)]
 pub struct ProcessSetupContext {
     pub args: ProcessArgs,
+    pub num_items: [u16; NUM_ITEM_BUCKETS],
     pub items: (*mut ProcessItem, usize, usize),
     pub mods: (*mut ProcessMod, usize, usize),
     pub auto_mods: (*mut ProcessStatMod, usize, usize),

@@ -3,7 +3,8 @@ use core::num::NonZeroU32;
 use crate::{
     dim_lo_process,
     types::{
-        EnergyType, ProcessItem, ProcessMod, ProcessStatMod, Stats, NUM_ITEM_BUCKETS, NUM_STATS,
+        EnergyType, ProcessArgs, ProcessItem, ProcessMod, ProcessStatMod, Stats, NUM_ITEM_BUCKETS,
+        NUM_STATS,
     },
 };
 
@@ -63,18 +64,16 @@ fn check_auto_assignment() {
             stats: Stats([2, 2, 2, 2, 2, 2]),
         }],
     ];
-    let result = dim_lo_process(
-        items,
-        &no_mods,
-        &no_mods,
-        &no_mods,
+    let args = ProcessArgs {
         base_stats,
-        &SAMPLE_MODS,
-        5,
-        [0, 0, 10, 9, 0, 0],
-        [10, 10, 10, 10, 10, 10],
-        true,
-    );
+        bounds: crate::types::ProcessTierBounds {
+            lower_bounds: [0, 0, 10, 9, 0, 0],
+            upper_bounds: [10, 10, 10, 10, 10, 10],
+        },
+        any_exotic: true,
+        auto_mods: 5,
+    };
+    let result = dim_lo_process(items, &no_mods, &no_mods, &no_mods, &SAMPLE_MODS, &args);
 
     assert!(!result.1.is_empty())
 }

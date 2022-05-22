@@ -8,8 +8,8 @@ use serde_repr::Deserialize_repr;
 use dim_lo_core::{
     dim_lo_process,
     types::{
-        EnergyType, ProcessItem, ProcessMod, ProcessStatMod, ProcessStats, Stats, NO_TIER,
-        NUM_ITEM_BUCKETS, NUM_STATS,
+        EnergyType, ProcessArgs, ProcessItem, ProcessMod, ProcessStatMod, ProcessStats,
+        ProcessTierBounds, Stats, NO_TIER, NUM_ITEM_BUCKETS, NUM_STATS,
     },
 };
 
@@ -214,18 +214,25 @@ fn main() -> Result<(), io::Error> {
     });
     let sliced = items.each_ref().map(|x| &**x);
 
-    let (info, results, global_lower, global_upper) = dim_lo_process(
+    let args = ProcessArgs {
+        base_stats: Stats(dim_export.mod_stat_totals),
+        bounds: ProcessTierBounds {
+            lower_bounds: lower,
+            upper_bounds: upper,
+        },
+        any_exotic: dim_export.any_exotic,
+        auto_mods: 5,
+    };
+
+    let (info, results, min_max) = dim_lo_process(
         sliced,
         &general_mods,
         &combat_mods,
         &activity_mods,
-        Stats(dim_export.mod_stat_totals),
         &auto_mods,
-        5,
-        lower,
-        upper,
-        dim_export.any_exotic,
+        &args,
     );
+
     let ProcessStats {
         num_valid_sets,
         skipped_low_tier,
@@ -245,6 +252,9 @@ Skipped Double Exotic: {skipped_double_exotic}
 Skipped No Exotic: {skipped_no_exotic}
 "#
     );
+
+    println!("MinMax: {:?} - {:?}", min_max.min, min_max.max);
+    println!("Num Results: {}", results.len());
 
     Ok(())
 }
