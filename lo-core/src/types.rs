@@ -8,8 +8,6 @@ pub const NUM_ITEM_BUCKETS: usize = 5;
 #[cfg_attr(test, derive(Debug))]
 pub struct Stats(pub [u16; NUM_STATS]);
 
-pub const NO_TIER: u8 = u8::MAX;
-
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Debug))]

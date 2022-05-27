@@ -9,7 +9,7 @@ use dim_lo_core::{
     dim_lo_process,
     types::{
         EnergyType, ProcessArgs, ProcessItem, ProcessMod, ProcessStatMod, ProcessStats,
-        ProcessTierBounds, Stats, NO_TIER, NUM_ITEM_BUCKETS, NUM_STATS,
+        ProcessTierBounds, Stats, NUM_ITEM_BUCKETS, NUM_STATS,
     },
 };
 
@@ -178,7 +178,8 @@ fn main() -> Result<(), io::Error> {
     let mut upper = [0; NUM_STATS];
     for (idx, filter) in dim_export.stat_filters.iter().enumerate() {
         if filter.ignored {
-            lower[idx] = NO_TIER;
+            lower[idx] = 0;
+            lower[idx] = 10;
         } else {
             lower[idx] = filter.min;
             upper[idx] = filter.max;

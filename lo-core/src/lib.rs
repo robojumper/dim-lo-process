@@ -11,7 +11,7 @@ use set_tracker::SetTracker;
 use stat_mod_set::SomeMods;
 use types::{
     EnergyType, ProcessArgs, ProcessArmorSet, ProcessItem, ProcessMinMaxStats, ProcessMod,
-    ProcessStatMod, ProcessStats, Stats, NO_TIER, NUM_ITEM_BUCKETS, NUM_STATS,
+    ProcessStatMod, ProcessStats, Stats, NUM_ITEM_BUCKETS, NUM_STATS,
 };
 
 mod set_tracker;
@@ -126,22 +126,17 @@ pub fn dim_lo_process(
                         let mut sorting_total_tier = 0;
 
                         for i in 0..NUM_STATS {
-                            if args.bounds.lower_bounds[i] != NO_TIER {
-                                max[i] = core::cmp::max(max[i], stats.0[i].clamp(0, 100));
-                                min[i] = core::cmp::min(min[i], stats.0[i].clamp(0, 100));
-                                // If a stat has a maximum, we still show sets that have a higher tier,
-                                // but we stop caring about the surplus. A user may specify that they
-                                // want 5 mobility at most because Dragon's Shadow gives 5 bonus mobility
-                                // after dodging, but hiding a really good T6 mobility set just because of
-                                // that is wrong, we should just treat it as if it had T5 mobility.
-                                if args.bounds.upper_bounds[i] < sorting_tiers[i] {
-                                    sorting_tiers[i] = args.bounds.upper_bounds[i];
-                                }
-                                sorting_total_tier += sorting_tiers[i];
-                            } else {
-                                // This stat is ignored
-                                sorting_tiers[i] = 0;
+                            max[i] = core::cmp::max(max[i], stats.0[i].clamp(0, 100));
+                            min[i] = core::cmp::min(min[i], stats.0[i].clamp(0, 100));
+                            // If a stat has a maximum, we still show sets that have a higher tier,
+                            // but we stop caring about the surplus. A user may specify that they
+                            // want 5 mobility at most because Dragon's Shadow gives 5 bonus mobility
+                            // after dodging, but hiding a really good T6 mobility set just because of
+                            // that is wrong, we should just treat it as if it had T5 mobility.
+                            if args.bounds.upper_bounds[i] < sorting_tiers[i] {
+                                sorting_tiers[i] = args.bounds.upper_bounds[i];
                             }
+                            sorting_total_tier += sorting_tiers[i];
                         }
 
                         if !set_tracker.could_insert(sorting_total_tier) {
@@ -252,10 +247,8 @@ fn can_take_mods_auto<'a>(
     // exactly the stats the auto stat mods map is keyed by.
     let mut contribution = Stats([0u16; NUM_STATS]);
     for i in 0..NUM_STATS {
-        if invars.lower[i] != NO_TIER {
-            contribution.0[i] = (invars.lower[i] as u16 * 10).saturating_sub(base_stats.0[i]);
-            contribution.0[i] += (5 - contribution.0[i] % 5) % 5;
-        }
+        contribution.0[i] = (invars.lower[i] as u16 * 10).saturating_sub(base_stats.0[i]);
+        contribution.0[i] += (5 - contribution.0[i] % 5) % 5;
     }
 
     // Retrieve the stat mod picks that could help us get to the minimum stats we need.
