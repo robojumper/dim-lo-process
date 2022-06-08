@@ -1,30 +1,20 @@
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{vec::Vec, collections::BTreeMap};
 
 use crate::types::{ProcessArmorSet, NUM_STATS};
 
-struct StatMix {
-    /// Tiers in stat order for purposes of sorting only!
-    /// We don't count tiers beyond what the user set as max (e.g. if the
-    /// user says max mobility 5 and we have 7, we treat this as if it had mobility 5),
-    /// and we also don't count auto stat mods (they're not interesting because they
-    /// only ever buff bad sets that need stat mods in the first place)
+/// Tiers in stat order for purposes of sorting only!
+/// We don't count tiers beyond what the user set as max (e.g. if the
+/// user says max mobility 5 and we have 7, we treat this as if it had mobility 5),
+/// and we also don't count auto stat mods (they're not interesting because they
+/// only ever buff bad sets that need stat mods in the first place)
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct SetSortingKey {
+    sorting_total_tier: u8,
     sorting_tiers: [u8; NUM_STATS],
-    sets: Vec<ProcessArmorSet>,
-}
-
-struct TierSet {
-    /// Effective tier (sum of sorting_tiers)
-    tier: u8,
-    // Boxing the contents is really important because it avoids tons
-    // of memmoves which are really slow in WASM. StatMix is 24 bytes,
-    // a Box is 4.
-    #[allow(clippy::vec_box)]
-    mixes: Vec<Box<StatMix>>,
 }
 
 pub struct SetTracker {
-    tiers: Vec<TierSet>,
-    total_sets: usize,
+    tracker: BTreeMap<SetSortingKey, Vec<ProcessArmorSet>>,
     capacity: usize,
 }
 
@@ -32,86 +22,41 @@ impl SetTracker {
     pub fn new(capacity: usize) -> Self {
         Self {
             capacity,
-            total_sets: 0,
-            tiers: vec![],
+            tracker: BTreeMap::new(),
         }
     }
 
     pub fn could_insert(&self, tier: u8) -> bool {
-        let worst_tier = self.tiers.last().map_or(0, |t| t.tier);
-        tier >= worst_tier || self.total_sets < self.capacity
+        match self.tracker.first_key_value() {
+            Some((k, _)) => k.sorting_total_tier <= tier,
+            None => true,
+        }
     }
 
     /// Insert a set into the tracker with the given
     pub fn insert(&mut self, sorting_tiers: [u8; NUM_STATS], set: ProcessArmorSet) {
-        match self.tiers.binary_search_by(|p| set.total_tier.cmp(&p.tier)) {
-            Ok(idx) => self.tiers[idx].insert(sorting_tiers, set),
-            Err(idx) => {
-                self.tiers.insert(
-                    idx,
-                    TierSet {
-                        tier: set.total_tier,
-                        mixes: vec![Box::new(StatMix {
-                            sorting_tiers,
-                            sets: vec![set],
-                        })],
-                    },
-                );
-            }
-        }
+        let key = SetSortingKey {
+            sorting_total_tier: set.total_tier,
+            sorting_tiers,
+        };
 
-        self.total_sets += 1;
-
+        self.tracker.entry(key).or_insert_with(Vec::new).push(set);
         self.trim_worst();
     }
 
     fn trim_worst(&mut self) {
-        if self.total_sets <= self.capacity {
+        if self.tracker.len() <= self.capacity {
             return;
         }
 
-        let worst_tier_set = self.tiers.last_mut().unwrap();
-        let worst_mix = worst_tier_set.mixes.last_mut().unwrap();
-        worst_mix.sets.pop();
-        if worst_mix.sets.is_empty() {
-            worst_tier_set.mixes.pop();
+        let mut worst_entry = self.tracker.first_entry().unwrap();
+        worst_entry.get_mut().pop();
+        if worst_entry.get_mut().is_empty() {
+            self.tracker.pop_first();
         }
-        if worst_tier_set.mixes.is_empty() {
-            self.tiers.pop();
-        }
-        self.total_sets -= 1;
     }
 
     pub fn sets_by_best(self) -> impl Iterator<Item = ProcessArmorSet> {
-        self.tiers
-            .into_iter()
-            .flat_map(|sets| sets.mixes.into_iter().flat_map(|m| m.sets))
-    }
-}
-
-impl TierSet {
-    fn insert(&mut self, sorting_tiers: [u8; NUM_STATS], set: ProcessArmorSet) {
-        match self
-            .mixes
-            .binary_search_by(|s| sorting_tiers.cmp(&s.sorting_tiers))
-        {
-            Ok(idx) => self.mixes[idx].insert(set),
-            Err(idx) => self.mixes.insert(
-                idx,
-                Box::new(StatMix {
-                    sorting_tiers,
-                    sets: vec![set],
-                }),
-            ),
-        }
-    }
-}
-
-impl StatMix {
-    fn insert(&mut self, set: ProcessArmorSet) {
-        match self.sets.iter().position(|s| set.power > s.power) {
-            Some(idx) => self.sets.insert(idx, set),
-            None => self.sets.push(set),
-        }
+        self.tracker.into_iter().rev().flat_map(|(_ , val)| val)
     }
 }

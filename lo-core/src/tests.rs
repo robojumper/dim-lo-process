@@ -85,18 +85,7 @@ pub const NO_MOD: ProcessMod = ProcessMod {
     energy_val: 0,
 };
 
-pub const SAMPLE_MODS: [ProcessStatMod; 13] = [
-    // No mod
-    ProcessStatMod {
-        inner_mod: ProcessMod {
-            hash: None,
-            mod_tag: None,
-            energy_type: EnergyType::Any,
-            energy_val: 0,
-        },
-
-        stats: Stats([0, 0, 0, 0, 0, 0]),
-    },
+pub const SAMPLE_MODS: [ProcessStatMod; 12] = [
     // Small mob
     ProcessStatMod {
         inner_mod: ProcessMod {

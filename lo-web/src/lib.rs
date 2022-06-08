@@ -25,6 +25,7 @@ fn lo_init(num_items: usize, num_auto_mods: usize) -> *mut ProcessSetupContext {
     let ctx = Box::new(ProcessSetupContext {
         args: ProcessArgs::default(),
         num_items: Default::default(),
+        num_auto_mods,
         items: items.into_raw_parts(),
         mods: mods.into_raw_parts(),
         auto_mods: auto_mods.into_raw_parts(),
@@ -102,7 +103,7 @@ fn lo_run(ctx: *mut ProcessSetupContext) -> *mut ProcessResults {
     let general_mods = unsafe { &*(ctx.mods.0 as *const [ProcessMod; 5]) };
     let combat_mods = unsafe { &*(ctx.mods.0.offset(5) as *const [ProcessMod; 5]) };
     let activity_mods = unsafe { &*(ctx.mods.0.offset(10) as *const [ProcessMod; 5]) };
-    let auto_mods = unsafe { &*(ctx.auto_mods.0 as *const [ProcessStatMod; 13]) };
+    let auto_mods = unsafe { core::slice::from_raw_parts(ctx.auto_mods.0, ctx.num_auto_mods) };
 
     let (stats, results, min_max) = dim_lo_process(
         lists,

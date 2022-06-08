@@ -93,7 +93,6 @@ pub struct ProcessStats {
 
 macro_rules! assert_size_align {
     ($ty:ident, $size:literal, $align:literal) => {
-        #[cfg(target_pointer_width = "32")]
         const _: () = {
             if core::mem::size_of::<$ty>() != $size {
                 panic!()

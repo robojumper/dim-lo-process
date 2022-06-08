@@ -16,6 +16,7 @@ pub struct ProcessResults {
 pub struct ProcessSetupContext {
     pub args: ProcessArgs,
     pub num_items: [u16; NUM_ITEM_BUCKETS],
+    pub num_auto_mods: usize,
     pub items: (*mut ProcessItem, usize, usize),
     pub mods: (*mut ProcessMod, usize, usize),
     pub auto_mods: (*mut ProcessStatMod, usize, usize),

@@ -1,5 +1,6 @@
 #![feature(array_methods)]
 #![feature(array_windows)]
+#![feature(map_first_last)]
 #![no_std]
 
 extern crate alloc;
